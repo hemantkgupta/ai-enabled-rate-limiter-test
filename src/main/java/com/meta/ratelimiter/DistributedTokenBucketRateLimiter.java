@@ -120,7 +120,7 @@ public class DistributedTokenBucketRateLimiter implements RateLimiter {
         String key = keyFor(clientId);
         long ttlMillis = config.getWindowSizeMillis();
         Supplier<TokenBucketSnapshot> initializer = () ->
-            new TokenBucketSnapshot(config.getMaxRequests(), System.currentTimeMillis(), false);
+            new TokenBucketSnapshot(config.getBurstCapacity(), System.currentTimeMillis(), false);
 
         return store.compute(key, ttlMillis, TokenBucketSnapshot.class, updater, initializer);
     }
@@ -133,7 +133,7 @@ public class DistributedTokenBucketRateLimiter implements RateLimiter {
 
         double refillRate = (double) config.getMaxRequests() / config.getWindowSizeMillis();
         double tokensToAdd = elapsedTime * refillRate;
-        state.tokens = Math.min(config.getMaxRequests(), state.tokens + tokensToAdd);
+        state.tokens = Math.min(config.getBurstCapacity(), state.tokens + tokensToAdd);
         state.lastRefillTimestamp = currentTime;
     }
 

@@ -23,7 +23,7 @@ public class TokenBucketRateLimiter implements RateLimiter {
     @Override
     public boolean allowRequest(String clientId) {
         ClientRateLimitStore.TokenBucketState state = 
-            store.getOrCreateTokenBucketState(clientId, config.getMaxRequests());
+            store.getOrCreateTokenBucketState(clientId, config.getBurstCapacity());
 
         // Synchronize on the state object to prevent race conditions
         synchronized (state) {
@@ -56,14 +56,14 @@ public class TokenBucketRateLimiter implements RateLimiter {
         
         double tokensToAdd = elapsedTime * refillRate;
         
-        state.tokens = Math.min(config.getMaxRequests(), state.tokens + tokensToAdd);
+        state.tokens = Math.min(config.getBurstCapacity(), state.tokens + tokensToAdd);
         state.lastRefillTimestamp = currentTime;
     }
 
     @Override
     public int getRemainingRequests(String clientId) {
         ClientRateLimitStore.TokenBucketState state = 
-            store.getOrCreateTokenBucketState(clientId, config.getMaxRequests());
+            store.getOrCreateTokenBucketState(clientId, config.getBurstCapacity());
         
         synchronized (state) {
             long currentTime = System.currentTimeMillis();
@@ -86,7 +86,7 @@ public class TokenBucketRateLimiter implements RateLimiter {
     @Override
     public long getResetTimeMillis(String clientId) {
         ClientRateLimitStore.TokenBucketState state = 
-            store.getOrCreateTokenBucketState(clientId, config.getMaxRequests());
+            store.getOrCreateTokenBucketState(clientId, config.getBurstCapacity());
         
         synchronized (state) {
             if (state.tokens >= 1.0) {
