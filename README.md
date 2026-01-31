@@ -1,4 +1,4 @@
-# AI-Enabled Coding Interview - Rate Limiter Challenge
+# AI-Enabled Coding Interview - Rate Limiter Test
 
 Use this session to familiarize yourself with AI-assisted problem solving for real-world distributed systems challenges.
 
