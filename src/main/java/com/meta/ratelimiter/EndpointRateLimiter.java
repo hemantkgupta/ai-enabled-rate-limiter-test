@@ -8,6 +8,8 @@ public interface EndpointRateLimiter {
 
     int getRemainingRequests(String clientId, String endpoint);
 
+    int getLimit(String clientId, String endpoint);
+
     void reset(String clientId, String endpoint);
 
     long getResetTimeMillis(String clientId, String endpoint);

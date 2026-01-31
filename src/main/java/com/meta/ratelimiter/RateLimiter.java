@@ -21,6 +21,11 @@ public interface RateLimiter {
     int getRemainingRequests(String clientId);
 
     /**
+     * Get the configured maximum requests for the client.
+     */
+    int getLimit(String clientId);
+
+    /**
      * Reset rate limit state for a specific client
      * Useful for testing or manual overrides
      * 

@@ -29,6 +29,11 @@ public class EndpointTieredRateLimiter implements EndpointRateLimiter {
     }
 
     @Override
+    public int getLimit(String clientId, String endpoint) {
+        return limiterFor(endpoint).getLimit(clientId);
+    }
+
+    @Override
     public void reset(String clientId, String endpoint) {
         limiterFor(endpoint).reset(clientId);
     }

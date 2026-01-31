@@ -26,6 +26,11 @@ public class TieredRateLimiter implements RateLimiter {
     }
 
     @Override
+    public int getLimit(String clientId) {
+        return limiterFor(clientId).getLimit(clientId);
+    }
+
+    @Override
     public void reset(String clientId) {
         limiterFor(clientId).reset(clientId);
     }

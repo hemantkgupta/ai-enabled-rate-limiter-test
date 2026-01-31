@@ -81,10 +81,16 @@ public class RateLimiterApp {
             // Check rate limit
             boolean allowed = endpointRateLimiter.allowRequest(clientId, endpoint);
             int remaining = endpointRateLimiter.getRemainingRequests(clientId, endpoint);
+            int limit = endpointRateLimiter.getLimit(clientId, endpoint);
+            long resetAfterMs = endpointRateLimiter.getResetTimeMillis(clientId, endpoint);
+            long resetUnixSeconds = toResetUnixSeconds(resetAfterMs);
+
+            response.header("X-RateLimit-Limit", String.valueOf(limit));
+            response.header("X-RateLimit-Remaining", String.valueOf(Math.max(0, remaining)));
+            response.header("X-RateLimit-Reset", String.valueOf(resetUnixSeconds));
 
             if (allowed) {
                 response.status(200);
-                response.header("X-RateLimit-Remaining", String.valueOf(remaining));
                 
                 return gson.toJson(Map.of(
                     "allowed", true,
@@ -93,14 +99,12 @@ public class RateLimiterApp {
                 ));
             } else {
                 response.status(429); // Too Many Requests
-                long resetTime = endpointRateLimiter.getResetTimeMillis(clientId, endpoint);
-                response.header("X-RateLimit-Remaining", "0");
-                response.header("Retry-After", String.valueOf(resetTime / 1000));
+                response.header("Retry-After", String.valueOf(resetAfterMs / 1000));
                 
                 return gson.toJson(Map.of(
                     "allowed", false,
                     "remaining", 0,
-                    "resetAfterMs", resetTime,
+                    "resetAfterMs", resetAfterMs,
                     "message", "Rate limit exceeded"
                 ));
             }
@@ -147,6 +151,12 @@ public class RateLimiterApp {
 
     public static void setRateLimiter(RateLimiter limiter) {
         rateLimiter = limiter;
+    }
+
+    private static long toResetUnixSeconds(long resetAfterMillis) {
+        long currentSeconds = System.currentTimeMillis() / 1000;
+        long resetAfterSeconds = (long) Math.ceil(resetAfterMillis / 1000.0);
+        return currentSeconds + Math.max(0, resetAfterSeconds);
     }
 
     private static TieredRateLimiter buildTieredLimiter(

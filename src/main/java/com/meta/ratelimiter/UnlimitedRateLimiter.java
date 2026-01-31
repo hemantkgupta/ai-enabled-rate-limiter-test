@@ -15,6 +15,11 @@ public class UnlimitedRateLimiter implements RateLimiter {
     }
 
     @Override
+    public int getLimit(String clientId) {
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
     public void reset(String clientId) {
         // no-op
     }

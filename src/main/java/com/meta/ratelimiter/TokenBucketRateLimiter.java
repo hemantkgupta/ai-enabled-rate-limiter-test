@@ -74,6 +74,11 @@ public class TokenBucketRateLimiter implements RateLimiter {
     }
 
     @Override
+    public int getLimit(String clientId) {
+        return config.getMaxRequests();
+    }
+
+    @Override
     public void reset(String clientId) {
         store.reset(clientId);
     }

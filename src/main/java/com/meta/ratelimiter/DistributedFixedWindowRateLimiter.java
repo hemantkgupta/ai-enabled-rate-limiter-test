@@ -84,6 +84,11 @@ public class DistributedFixedWindowRateLimiter implements RateLimiter {
     }
 
     @Override
+    public int getLimit(String clientId) {
+        return config.getMaxRequests();
+    }
+
+    @Override
     public void reset(String clientId) {
         store.remove(keyFor(clientId));
         fallbackLimiter.reset(clientId);
