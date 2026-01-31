@@ -25,8 +25,6 @@ public class ConcurrencyTest {
         rateLimiter = new TokenBucketRateLimiter(config, store);
     }
 
-    // UNCOMMENT THIS TEST - it will fail due to race conditions!
-    /*
     @Test
     public void testConcurrentRequests() throws InterruptedException {
         String clientId = "concurrent-client";
@@ -52,16 +50,12 @@ public class ConcurrencyTest {
         executor.shutdown();
 
         // Should allow exactly 100 requests (the rate limit)
-        // BUG: Due to race conditions, this might allow more than 100!
         System.out.println("Allowed requests: " + allowedRequests.get());
         
         assertTrue("Should not exceed rate limit. Allowed: " + allowedRequests.get(),
                   allowedRequests.get() <= config.getMaxRequests());
     }
-    */
 
-    // UNCOMMENT THIS TEST - tests concurrent access to different clients
-    /*
     @Test
     public void testConcurrentMultipleClients() throws InterruptedException {
         int numClients = 5;
@@ -96,10 +90,8 @@ public class ConcurrencyTest {
                       allowed <= config.getMaxRequests());
         }
     }
-    */
 
-    // UNCOMMENT THIS TEST - stress test
-    /*
+
     @Test
     public void testHighConcurrencyStressTest() throws InterruptedException {
         String clientId = "stress-test-client";
@@ -138,5 +130,4 @@ public class ConcurrencyTest {
         assertTrue("Should respect rate limit", 
                   allowedRequests.get() <= config.getMaxRequests());
     }
-    */
 }

@@ -25,18 +25,21 @@ public class TokenBucketRateLimiter implements RateLimiter {
         ClientRateLimitStore.TokenBucketState state = 
             store.getOrCreateTokenBucketState(clientId, config.getMaxRequests());
 
-        long currentTime = System.currentTimeMillis();
-        
-        // Refill tokens based on time elapsed
-        refillTokens(state, currentTime);
+        // Synchronize on the state object to prevent race conditions
+        synchronized (state) {
+            long currentTime = System.currentTimeMillis();
+            
+            // Refill tokens based on time elapsed
+            refillTokens(state, currentTime);
 
-        // Check if we have tokens available
-        if (state.tokens >= 1.0) {
-            state.tokens -= 1.0;
-            return true;
+            // Check if we have tokens available
+            if (state.tokens >= 1.0) {
+                state.tokens -= 1.0;
+                return true;
+            }
+
+            return false;
         }
-
-        return false;
     }
 
     /**
@@ -49,9 +52,7 @@ public class TokenBucketRateLimiter implements RateLimiter {
         long elapsedTime = currentTime - state.lastRefillTimestamp;
         
         // Calculate refill rate: tokens per millisecond
-        // BUG: Integer division loses precision!
-        // This should be: (double) config.getMaxRequests() / config.getWindowSizeMillis()
-        double refillRate = config.getMaxRequests() / config.getWindowSizeMillis();
+        double refillRate = (double) config.getMaxRequests() / config.getWindowSizeMillis();
         
         double tokensToAdd = elapsedTime * refillRate;
         
@@ -64,10 +65,12 @@ public class TokenBucketRateLimiter implements RateLimiter {
         ClientRateLimitStore.TokenBucketState state = 
             store.getOrCreateTokenBucketState(clientId, config.getMaxRequests());
         
-        long currentTime = System.currentTimeMillis();
-        refillTokens(state, currentTime);
-        
-        return (int) Math.floor(state.tokens);
+        synchronized (state) {
+            long currentTime = System.currentTimeMillis();
+            refillTokens(state, currentTime);
+            
+            return (int) Math.floor(state.tokens);
+        }
     }
 
     @Override
@@ -80,15 +83,17 @@ public class TokenBucketRateLimiter implements RateLimiter {
         ClientRateLimitStore.TokenBucketState state = 
             store.getOrCreateTokenBucketState(clientId, config.getMaxRequests());
         
-        if (state.tokens >= 1.0) {
-            return 0; // Not rate limited
-        }
+        synchronized (state) {
+            if (state.tokens >= 1.0) {
+                return 0; // Not rate limited
+            }
 
-        // Calculate time until 1 token is available
-        double refillRate = (double) config.getMaxRequests() / config.getWindowSizeMillis();
-        double tokensNeeded = 1.0 - state.tokens;
-        long timeNeeded = (long) (tokensNeeded / refillRate);
-        
-        return timeNeeded;
+            // Calculate time until 1 token is available
+            double refillRate = (double) config.getMaxRequests() / config.getWindowSizeMillis();
+            double tokensNeeded = 1.0 - state.tokens;
+            long timeNeeded = (long) (tokensNeeded / refillRate);
+            
+            return timeNeeded;
+        }
     }
 }

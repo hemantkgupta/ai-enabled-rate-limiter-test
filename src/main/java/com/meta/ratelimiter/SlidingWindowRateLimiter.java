@@ -28,28 +28,24 @@ public class SlidingWindowRateLimiter implements RateLimiter {
         ClientRateLimitStore.SlidingWindowState state = 
             store.getOrCreateSlidingWindowState(clientId);
 
-        long currentTime = System.currentTimeMillis();
-        long windowStart = currentTime - config.getWindowSizeMillis();
+        synchronized (state) {
+            long currentTime = System.currentTimeMillis();
+            long windowStart = currentTime - config.getWindowSizeMillis();
 
-        // BUG: We count old timestamps but never remove them!
-        // This causes the list to grow unbounded, leading to memory leak
-        // and slower performance over time
-        
-        // Count requests in current window
-        int requestCount = 0;
-        for (Long timestamp : state.requestTimestamps) {
-            if (timestamp >= windowStart) {
-                requestCount++;
+            // Remove old timestamps to prevent memory leak
+            state.requestTimestamps.removeIf(timestamp -> timestamp < windowStart);
+            
+            // Count requests in current window
+            int requestCount = state.requestTimestamps.size();
+
+            // Check if we're under the limit
+            if (requestCount < config.getMaxRequests()) {
+                state.requestTimestamps.add(currentTime);
+                return true;
             }
-        }
 
-        // Check if we're under the limit
-        if (requestCount < config.getMaxRequests()) {
-            state.requestTimestamps.add(currentTime);
-            return true;
+            return false;
         }
-
-        return false;
     }
 
     @Override
@@ -57,18 +53,18 @@ public class SlidingWindowRateLimiter implements RateLimiter {
         ClientRateLimitStore.SlidingWindowState state = 
             store.getOrCreateSlidingWindowState(clientId);
 
-        long currentTime = System.currentTimeMillis();
-        long windowStart = currentTime - config.getWindowSizeMillis();
+        synchronized (state) {
+            long currentTime = System.currentTimeMillis();
+            long windowStart = currentTime - config.getWindowSizeMillis();
 
-        // Count requests in current window
-        int requestCount = 0;
-        for (Long timestamp : state.requestTimestamps) {
-            if (timestamp >= windowStart) {
-                requestCount++;
-            }
+            // Remove old timestamps
+            state.requestTimestamps.removeIf(timestamp -> timestamp < windowStart);
+            
+            // Count requests in current window
+            int requestCount = state.requestTimestamps.size();
+
+            return Math.max(0, config.getMaxRequests() - requestCount);
         }
-
-        return Math.max(0, config.getMaxRequests() - requestCount);
     }
 
     @Override
@@ -81,29 +77,32 @@ public class SlidingWindowRateLimiter implements RateLimiter {
         ClientRateLimitStore.SlidingWindowState state = 
             store.getOrCreateSlidingWindowState(clientId);
 
-        if (state.requestTimestamps.isEmpty()) {
-            return 0;
-        }
+        synchronized (state) {
+            if (state.requestTimestamps.isEmpty()) {
+                return 0;
+            }
 
-        long currentTime = System.currentTimeMillis();
-        long windowStart = currentTime - config.getWindowSizeMillis();
+            long currentTime = System.currentTimeMillis();
+            long windowStart = currentTime - config.getWindowSizeMillis();
 
-        // Find oldest request in current window
-        Long oldestInWindow = null;
-        for (Long timestamp : state.requestTimestamps) {
-            if (timestamp >= windowStart) {
-                if (oldestInWindow == null || timestamp < oldestInWindow) {
+            // Remove old timestamps
+            state.requestTimestamps.removeIf(timestamp -> timestamp < windowStart);
+            
+            if (state.requestTimestamps.isEmpty()) {
+                return 0;
+            }
+
+            // Find oldest request in current window (list is already filtered)
+            Long oldestInWindow = state.requestTimestamps.get(0);
+            for (Long timestamp : state.requestTimestamps) {
+                if (timestamp < oldestInWindow) {
                     oldestInWindow = timestamp;
                 }
             }
-        }
 
-        if (oldestInWindow == null) {
-            return 0;
+            // Time until oldest request expires from window
+            long resetTime = oldestInWindow + config.getWindowSizeMillis() - currentTime;
+            return Math.max(0, resetTime);
         }
-
-        // Time until oldest request expires from window
-        long resetTime = oldestInWindow + config.getWindowSizeMillis() - currentTime;
-        return Math.max(0, resetTime);
     }
 }

@@ -2,6 +2,7 @@ package com.meta.ratelimiter;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * In-memory storage for client rate limit state
@@ -31,20 +32,16 @@ public class ClientRateLimitStore {
         }
     }
 
-    // BUG: These maps are not thread-safe and cause race conditions
-    private Map<String, TokenBucketState> tokenBucketStates = new HashMap<>();
-    private Map<String, SlidingWindowState> slidingWindowStates = new HashMap<>();
+    private Map<String, TokenBucketState> tokenBucketStates = new ConcurrentHashMap<>();
+    private Map<String, SlidingWindowState> slidingWindowStates = new ConcurrentHashMap<>();
 
     /**
      * Get or create token bucket state for a client
+     * Uses putIfAbsent to avoid race condition
      */
     public TokenBucketState getOrCreateTokenBucketState(String clientId, double initialTokens) {
-        TokenBucketState state = tokenBucketStates.get(clientId);
-        if (state == null) {
-            state = new TokenBucketState(initialTokens, System.currentTimeMillis());
-            tokenBucketStates.put(clientId, state);
-        }
-        return state;
+        return tokenBucketStates.computeIfAbsent(clientId, 
+            k -> new TokenBucketState(initialTokens, System.currentTimeMillis()));
     }
 
     /**
@@ -60,14 +57,10 @@ public class ClientRateLimitStore {
 
     /**
      * Get or create sliding window state for a client
+     * Uses computeIfAbsent to avoid race condition
      */
     public SlidingWindowState getOrCreateSlidingWindowState(String clientId) {
-        SlidingWindowState state = slidingWindowStates.get(clientId);
-        if (state == null) {
-            state = new SlidingWindowState();
-            slidingWindowStates.put(clientId, state);
-        }
-        return state;
+        return slidingWindowStates.computeIfAbsent(clientId, k -> new SlidingWindowState());
     }
 
     /**
