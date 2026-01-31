@@ -9,6 +9,7 @@ import java.util.function.Supplier;
  */
 public class DistributedSlidingWindowRateLimiter implements RateLimiter {
     private static final String KEY_PREFIX = "sliding-window:";
+    private final String keyNamespace;
 
     private static class SlidingWindowSnapshot {
         private List<Long> requestTimestamps;
@@ -32,6 +33,19 @@ public class DistributedSlidingWindowRateLimiter implements RateLimiter {
         this.config = config;
         this.store = store;
         this.fallbackLimiter = fallbackLimiter;
+        this.keyNamespace = KEY_PREFIX;
+    }
+
+    public DistributedSlidingWindowRateLimiter(
+        RateLimitConfig config,
+        DistributedRateLimitStore store,
+        RateLimiter fallbackLimiter,
+        String keyNamespace
+    ) {
+        this.config = config;
+        this.store = store;
+        this.fallbackLimiter = fallbackLimiter;
+        this.keyNamespace = keyNamespace;
     }
 
     @Override
@@ -120,6 +134,6 @@ public class DistributedSlidingWindowRateLimiter implements RateLimiter {
     }
 
     private String keyFor(String clientId) {
-        return KEY_PREFIX + clientId;
+        return keyNamespace + clientId;
     }
 }

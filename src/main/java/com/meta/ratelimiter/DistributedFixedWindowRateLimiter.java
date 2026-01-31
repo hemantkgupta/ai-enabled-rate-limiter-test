@@ -7,6 +7,7 @@ import java.util.function.Supplier;
  */
 public class DistributedFixedWindowRateLimiter implements RateLimiter {
     private static final String KEY_PREFIX = "fixed-window:";
+    private final String keyNamespace;
 
     private static class FixedWindowSnapshot {
         private int count;
@@ -32,6 +33,19 @@ public class DistributedFixedWindowRateLimiter implements RateLimiter {
         this.config = config;
         this.store = store;
         this.fallbackLimiter = fallbackLimiter;
+        this.keyNamespace = KEY_PREFIX;
+    }
+
+    public DistributedFixedWindowRateLimiter(
+        RateLimitConfig config,
+        DistributedRateLimitStore store,
+        RateLimiter fallbackLimiter,
+        String keyNamespace
+    ) {
+        this.config = config;
+        this.store = store;
+        this.fallbackLimiter = fallbackLimiter;
+        this.keyNamespace = keyNamespace;
     }
 
     @Override
@@ -116,6 +130,6 @@ public class DistributedFixedWindowRateLimiter implements RateLimiter {
     }
 
     private String keyFor(String clientId) {
-        return KEY_PREFIX + clientId;
+        return keyNamespace + clientId;
     }
 }

@@ -9,6 +9,7 @@ import java.util.function.Supplier;
  */
 public class DistributedTokenBucketRateLimiter implements RateLimiter {
     private static final String KEY_PREFIX = "token-bucket:";
+    private final String keyNamespace;
 
     private static class TokenBucketSnapshot {
         private double tokens;
@@ -34,6 +35,19 @@ public class DistributedTokenBucketRateLimiter implements RateLimiter {
         this.config = config;
         this.store = store;
         this.fallbackLimiter = fallbackLimiter;
+        this.keyNamespace = KEY_PREFIX;
+    }
+
+    public DistributedTokenBucketRateLimiter(
+        RateLimitConfig config,
+        DistributedRateLimitStore store,
+        RateLimiter fallbackLimiter,
+        String keyNamespace
+    ) {
+        this.config = config;
+        this.store = store;
+        this.fallbackLimiter = fallbackLimiter;
+        this.keyNamespace = keyNamespace;
     }
 
     @Override
@@ -119,6 +133,6 @@ public class DistributedTokenBucketRateLimiter implements RateLimiter {
     }
 
     private String keyFor(String clientId) {
-        return KEY_PREFIX + clientId;
+        return keyNamespace + clientId;
     }
 }

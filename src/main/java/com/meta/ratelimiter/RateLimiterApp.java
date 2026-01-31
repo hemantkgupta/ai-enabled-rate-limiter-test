@@ -21,16 +21,14 @@ public class RateLimiterApp {
         System.out.println("  Rate Limiter Service Started  ");
         System.out.println("=================================");
 
-        // Initialize rate limiter with default config
-        RateLimitConfig config = RateLimitConfig.getDefault();
-        ClientRateLimitStore localStore = new ClientRateLimitStore();
-        RateLimiter localFallback = new TokenBucketRateLimiter(config, localStore);
+        // Initialize tiered, distributed rate limiter
         DistributedRateLimitStore distributedStore = new InMemoryDistributedRateLimitStore();
-        rateLimiter = buildDistributedLimiter(config, distributedStore, localFallback);
+        InMemoryClientTierResolver tierResolver = new InMemoryClientTierResolver(ClientTier.FREE);
+        TieredRateLimitConfig tieredConfig = TieredRateLimitConfig.defaultPerSecond();
+        rateLimiter = buildTieredLimiter(tieredConfig, distributedStore, tierResolver);
 
-        System.out.println("Config: " + config.getMaxRequests() + 
-                         " requests per " + config.getWindowSizeMillis() + "ms");
-        System.out.println("Strategy: " + config.getStrategy() + " (distributed)");
+        System.out.println("Tiered Config: FREE/PREMIUM/ENTERPRISE per second");
+        System.out.println("Strategy: TOKEN_BUCKET (distributed)");
         System.out.println("\nAPI running on http://localhost:4567");
         System.out.println("=================================\n");
 
@@ -147,15 +145,28 @@ public class RateLimiterApp {
         rateLimiter = limiter;
     }
 
-    private static RateLimiter buildDistributedLimiter(
-        RateLimitConfig config,
+    private static RateLimiter buildTieredLimiter(
+        TieredRateLimitConfig tieredConfig,
         DistributedRateLimitStore store,
-        RateLimiter fallbackLimiter
+        ClientTierResolver tierResolver
     ) {
-        return switch (config.getStrategy()) {
-            case TOKEN_BUCKET -> new DistributedTokenBucketRateLimiter(config, store, fallbackLimiter);
-            case SLIDING_WINDOW -> new DistributedSlidingWindowRateLimiter(config, store, fallbackLimiter);
-            case FIXED_WINDOW -> new DistributedFixedWindowRateLimiter(config, store, fallbackLimiter);
-        };
+        java.util.Map<ClientTier, RateLimiter> limiters = new java.util.EnumMap<>(ClientTier.class);
+
+        for (ClientTier tier : ClientTier.values()) {
+            RateLimitConfig config = tieredConfig.getConfigFor(tier);
+            ClientRateLimitStore localStore = new ClientRateLimitStore();
+            RateLimiter fallbackLimiter = new TokenBucketRateLimiter(config, localStore);
+            String namespace = "token-bucket:" + tier.name().toLowerCase() + ":";
+
+            RateLimiter limiter = new DistributedTokenBucketRateLimiter(
+                config,
+                store,
+                fallbackLimiter,
+                namespace
+            );
+            limiters.put(tier, limiter);
+        }
+
+        return new TieredRateLimiter(tierResolver, limiters);
     }
 }
