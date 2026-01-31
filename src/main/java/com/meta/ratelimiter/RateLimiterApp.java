@@ -23,12 +23,14 @@ public class RateLimiterApp {
 
         // Initialize rate limiter with default config
         RateLimitConfig config = RateLimitConfig.getDefault();
-        ClientRateLimitStore store = new ClientRateLimitStore();
-        rateLimiter = new TokenBucketRateLimiter(config, store);
+        ClientRateLimitStore localStore = new ClientRateLimitStore();
+        RateLimiter localFallback = new TokenBucketRateLimiter(config, localStore);
+        DistributedRateLimitStore distributedStore = new InMemoryDistributedRateLimitStore();
+        rateLimiter = buildDistributedLimiter(config, distributedStore, localFallback);
 
         System.out.println("Config: " + config.getMaxRequests() + 
                          " requests per " + config.getWindowSizeMillis() + "ms");
-        System.out.println("Strategy: " + config.getStrategy());
+        System.out.println("Strategy: " + config.getStrategy() + " (distributed)");
         System.out.println("\nAPI running on http://localhost:4567");
         System.out.println("=================================\n");
 
@@ -143,5 +145,17 @@ public class RateLimiterApp {
 
     public static void setRateLimiter(RateLimiter limiter) {
         rateLimiter = limiter;
+    }
+
+    private static RateLimiter buildDistributedLimiter(
+        RateLimitConfig config,
+        DistributedRateLimitStore store,
+        RateLimiter fallbackLimiter
+    ) {
+        return switch (config.getStrategy()) {
+            case TOKEN_BUCKET -> new DistributedTokenBucketRateLimiter(config, store, fallbackLimiter);
+            case SLIDING_WINDOW -> new DistributedSlidingWindowRateLimiter(config, store, fallbackLimiter);
+            case FIXED_WINDOW -> new DistributedFixedWindowRateLimiter(config, store, fallbackLimiter);
+        };
     }
 }
